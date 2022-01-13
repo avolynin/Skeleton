@@ -1,31 +1,32 @@
 import time
-import sys
 import win32pipe, win32file, pywintypes
+import io
+from PIL import Image
 
 print("pipe client")
 quit = False
 
-win32pipe.CreateNamedPipe
+def byteToImage(bytesImg):
+    imageStream = io.BytesIO(bytesImg)
+    imageFileJPG = Image.open(imageStream).convert("RGB")
+    imageFileJPG.show();
+
+    imageStream.close()
 
 while not quit:
     try:
         handle = win32file.CreateFile(
             r'\\.\pipe\testpipe',
             win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-            0,
-            None,
-            win32file.OPEN_EXISTING,
-            0,
-            None
-        )
-        
+            0, None,
+            win32file.OPEN_EXISTING, 0, None)
         res = win32pipe.SetNamedPipeHandleState(handle, win32pipe.PIPE_READMODE_BYTE, None, None)
-        print(res)
+
         if res == 0:
             print(f"SetNamedPipeHandleState return code: {res}")
-        while True:
-            resp = win32file.ReadFile(handle, 64*1024)
-            print(f"message: {resp}")
+        rc, data = win32file.ReadFile(handle, 64*1024)
+        print(f"message: {data}")
+        byteToImage(data)
     except pywintypes.error as e:
         if e.args[0] == 2:
             print("no pipe, trying again in a sec")

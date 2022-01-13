@@ -5,35 +5,66 @@ using System.Text;
 
 namespace Mallenom.SkeletonLib.NamedPipe
 {
-	public static class PipeServer
+	public class PipeServer : IDisposable
 	{
-		public static void Run()
+		private NamedPipeServerStream _pipeServer;
+		private bool disposedValue;
+
+		public string Name { get; set; }
+
+		public PipeServer(string name)
 		{
-			using var pipeServer = new NamedPipeServerStream
-				("testpipe",
+			Name = name;
+		}
+
+		public void Run()
+		{
+			_pipeServer = new NamedPipeServerStream
+				(Name,
 				PipeDirection.InOut,
 				-1,
 				PipeTransmissionMode.Byte);
-			Console.WriteLine("NamedPipeServerStream object created.");
 
 			// Wait for a client to connect
-			pipeServer.WaitForConnection();
+			_pipeServer.WaitForConnection();
+		}
 
-			//Client connected
+		public void Send(byte[] bytes)
+		{
 			try
 			{
-				// Read user input and send that to the client process.
-				using var sw = new StreamWriter(pipeServer);
-				sw.AutoFlush = true;
-				Console.Write("Enter text: ");
-				sw.WriteLine(Console.ReadLine());
+				// Send that to the client process.
+				using var bw = new BinaryWriter(_pipeServer);
+				//bw.AutoFlush = true;
+				bw.Write(bytes);
 			}
-			// Catch the IOException that is raised if the pipe is broken
-			// or disconnected.
-			catch(IOException e)
+			catch(IOException)
 			{
-				Console.WriteLine("ERROR: {0}", e.Message);
+				throw;
 			}
+		}
+
+		protected virtual void Dispose(bool disposing)
+		{
+			if(!disposedValue)
+			{
+				if(disposing)
+				{
+					_pipeServer.Dispose();
+				}
+				disposedValue = true;
+			}
+		}
+
+		~PipeServer()
+		{
+			Dispose(disposing: false);
+		}
+
+		public void Dispose()
+		{
+			Dispose(disposing: true);
+			GC.SuppressFinalize(this);
 		}
 	}
 }

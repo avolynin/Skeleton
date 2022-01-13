@@ -1,5 +1,6 @@
 ﻿using System;
-using Mallenom.SkeletonLib.NamedPipe;
+using System.IO;
+using Mallenom.SkeletonLib;
 
 namespace test
 {
@@ -7,7 +8,15 @@ namespace test
 	{
 		static void Main(string[] args)
 		{
-			PipeServer.Run();
+			var path = @"D:\Users\Camputer\source\repos\MemoryTest\image.jpg";
+			var imgdata = System.IO.File.ReadAllBytes(path);
+
+			var s = new Skeleton();
+			s.SendImage(imgdata);
+			foreach(var item in imgdata)
+			{
+				Console.WriteLine(item);
+			}
 		}
 	}
 }
