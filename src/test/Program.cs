@@ -11,12 +11,8 @@ namespace test
 			var path = @"D:\Users\Camputer\source\repos\MemoryTest\image.jpg";
 			var imgdata = System.IO.File.ReadAllBytes(path);
 
-			var s = new Skeleton();
-			s.SendImage(imgdata);
-			foreach(var item in imgdata)
-			{
-				Console.WriteLine(item);
-			}
+			var s = new Skeleton(imgdata);
+			var b = s.GetImageWithBonesAsync();
 		}
 	}
 }

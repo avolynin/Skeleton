@@ -1,70 +1,140 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Mallenom.SkeletonLib.NamedPipe
 {
-	public class PipeServer : IDisposable
+	// Delegate for passing received message back to caller
+	public delegate void DelegateMessage(string Reply);
+
+	public class PipeServer
 	{
 		private NamedPipeServerStream _pipeServer;
-		private bool disposedValue;
+		private bool _pipeIsOpen = true;
 
+		public event DelegateMessage PipeMessage;
 		public string Name { get; set; }
+		public Queue<Task> QueueTasks;
 
 		public PipeServer(string name)
 		{
 			Name = name;
+			QueueTasks = new Queue<Task>();
+			_pipeServer = new NamedPipeServerStream(Name,
+				   PipeDirection.InOut, -1, PipeTransmissionMode.Byte);
 		}
 
-		public void Run()
+		public void SendAsync(byte[] bytes)
 		{
-			_pipeServer = new NamedPipeServerStream
-				(Name,
-				PipeDirection.InOut,
-				-1,
-				PipeTransmissionMode.Byte);
+			var task = new Task(() => { Send(bytes); });
+			QueueTasks.Enqueue(task);
 
-			// Wait for a client to connect
-			_pipeServer.WaitForConnection();
+			if(_pipeIsOpen)
+			{
+				QueueTasks.Dequeue().Start();
+				_pipeIsOpen = false;
+			}
+		}
+
+		public void ListenAsync()
+		{
+			var task = new Task(() => { Listen(); });
+			QueueTasks.Enqueue(task);
+
+			if(_pipeIsOpen)
+			{
+				QueueTasks.Dequeue().Start();
+				_pipeIsOpen = false;
+			}
 		}
 
 		public void Send(byte[] bytes)
 		{
 			try
 			{
-				// Send that to the client process.
-				using var bw = new BinaryWriter(_pipeServer);
-				//bw.AutoFlush = true;
-				bw.Write(bytes);
+				Console.WriteLine("Send");
+
+				_pipeServer.WaitForConnection();
+				_pipeServer.BeginWrite(bytes, 0, bytes.Length,
+					new AsyncCallback(WriteCallback), _pipeServer);
 			}
-			catch(IOException)
+			catch(Exception)
 			{
 				throw;
 			}
 		}
 
-		protected virtual void Dispose(bool disposing)
+		private void WriteCallback(IAsyncResult iar)
 		{
-			if(!disposedValue)
+			try
 			{
-				if(disposing)
-				{
-					_pipeServer.Dispose();
-				}
-				disposedValue = true;
+				// Получение записывающего канала
+				var pipeStream = (NamedPipeServerStream)iar.AsyncState;
+
+				// Конец записи
+				pipeStream.EndWrite(iar);
+				pipeStream.Flush();
+
+				if(QueueTasks.TryDequeue(out var task)) task.Start();
+				else _pipeIsOpen = true;
+			}
+			catch(Exception)
+			{
+				throw;
 			}
 		}
 
-		~PipeServer()
+		public void Listen()
 		{
-			Dispose(disposing: false);
+			try
+			{
+				// Ожидание соединения
+				_pipeServer.BeginWaitForConnection
+				(new AsyncCallback(WaitForConnectionCallBack), _pipeServer);
+			}
+			catch(Exception)
+			{
+				throw;
+			}
 		}
 
-		public void Dispose()
+		private void WaitForConnectionCallBack(IAsyncResult iar)
 		{
-			Dispose(disposing: true);
-			GC.SuppressFinalize(this);
+			try
+			{
+				// Получение канала
+				NamedPipeServerStream pipeServer = (NamedPipeServerStream)iar.AsyncState;
+				// End waiting for the connection
+				//pipeServer.EndWaitForConnection(iar);
+
+				byte[] buffer = new byte[255];
+
+				// Read the incoming message
+				pipeServer.Read(buffer, 0, 255);
+
+				// Convert byte buffer to string
+				string stringData = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
+
+				// Pass message back to calling form
+				PipeMessage.Invoke(stringData);
+
+				if(QueueTasks.TryDequeue(out var task)) task.Start();
+				else _pipeIsOpen = true;
+			}
+			catch
+			{
+				return;
+			}
+		}
+
+		public void Kill()
+		{
+			// Kill original sever
+			_pipeServer.Close();
+			_pipeServer.Dispose();
 		}
 	}
 }
