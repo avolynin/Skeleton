@@ -1,65 +1,42 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Mallenom.SkeletonLib.NamedPipe
 {
-	// Delegate for passing received message back to caller
-	public delegate void DelegateMessage(string Reply);
-
-	public class PipeServer
+	/// <summary>Именованный канал для синхронной записи и чтения по каналу.</summary>
+	public class PipeServer : IDisposable
 	{
+		#region Fields
+
+		/// <summary>Экземпляр именованного канала-сервера.</summary>
 		private NamedPipeServerStream _pipeServer;
-		private bool _pipeIsOpen = true;
 
-		public event DelegateMessage PipeMessage;
+		/// <summary>Имя канала.</summary>
 		public string Name { get; set; }
-		public Queue<Task> QueueTasks;
 
+		#endregion
+
+		/// <summary>Создает именованный канал с указанным именем.</summary>
+		/// <param name="name">Имя канала.</param>
 		public PipeServer(string name)
 		{
 			Name = name;
-			QueueTasks = new Queue<Task>();
 			_pipeServer = new NamedPipeServerStream(Name,
-				   PipeDirection.InOut, -1, PipeTransmissionMode.Byte);
+				PipeDirection.InOut, -1, PipeTransmissionMode.Byte);
 		}
 
-		public void SendAsync(byte[] bytes)
-		{
-			var task = new Task(() => { Send(bytes); });
-			QueueTasks.Enqueue(task);
-
-			if(_pipeIsOpen)
-			{
-				QueueTasks.Dequeue().Start();
-				_pipeIsOpen = false;
-			}
-		}
-
-		public void ListenAsync()
-		{
-			var task = new Task(() => { Listen(); });
-			QueueTasks.Enqueue(task);
-
-			if(_pipeIsOpen)
-			{
-				QueueTasks.Dequeue().Start();
-				_pipeIsOpen = false;
-			}
-		}
-
+		/// <summary>Отправляет массив байтов по каналу клиентам.</summary>
+		/// <param name="bytes">Отправляемый массив байтов.</param>
 		public void Send(byte[] bytes)
 		{
 			try
 			{
-				Console.WriteLine("Send");
-
 				_pipeServer.WaitForConnection();
 				_pipeServer.BeginWrite(bytes, 0, bytes.Length,
-					new AsyncCallback(WriteCallback), _pipeServer);
+					new AsyncCallback(WriteCallback), null);
 			}
 			catch(Exception)
 			{
@@ -67,19 +44,38 @@ namespace Mallenom.SkeletonLib.NamedPipe
 			}
 		}
 
+		/// <summary>Прослушивает сообщения клиентов.</summary>
+		/// <returns>Массив байтов полученный от клиента.</returns>
+		public byte[] Listen()
+		{
+			// Обертка задачи для получения результата обратного вызова(callback)
+			var taskCompletionSource = new TaskCompletionSource<byte[]>();
+
+			try
+			{
+				// Ожидание соединения
+				_pipeServer.BeginWaitForConnection(asyncResult =>
+				{
+					taskCompletionSource.SetResult(WaitForConnectionCallBack(asyncResult));
+				}, null);
+			}
+			catch(Exception)
+			{
+				throw;
+			}
+
+			return taskCompletionSource.Task.Result;
+		}
+
+		/// <summary>Вызывается после окончания записи.</summary>
+		/// <param name="iar">Представляет состояние асинхронной операции.</param>
 		private void WriteCallback(IAsyncResult iar)
 		{
 			try
 			{
-				// Получение записывающего канала
-				var pipeStream = (NamedPipeServerStream)iar.AsyncState;
-
 				// Конец записи
-				pipeStream.EndWrite(iar);
-				pipeStream.Flush();
-
-				if(QueueTasks.TryDequeue(out var task)) task.Start();
-				else _pipeIsOpen = true;
+				_pipeServer.EndWrite(iar);
+				_pipeServer.Flush();
 			}
 			catch(Exception)
 			{
@@ -87,54 +83,55 @@ namespace Mallenom.SkeletonLib.NamedPipe
 			}
 		}
 
-		public void Listen()
+		/// <summary>Вызывается после подключения клиента.</summary>
+		/// <param name="iar">Представляет состояние асинхронной операции.</param>
+		/// <returns>Массив прочитанных байтов.</returns>
+		private byte[] WaitForConnectionCallBack(IAsyncResult iar)
 		{
 			try
 			{
-				// Ожидание соединения
-				_pipeServer.BeginWaitForConnection
-				(new AsyncCallback(WaitForConnectionCallBack), _pipeServer);
-			}
-			catch(Exception)
-			{
-				throw;
-			}
-		}
+				byte[] buffer = new byte[100000];
+				// Чтение входящего сообщения в буффер
+				_pipeServer.Read(buffer, 0, 100000);
 
-		private void WaitForConnectionCallBack(IAsyncResult iar)
-		{
-			try
-			{
-				// Получение канала
-				NamedPipeServerStream pipeServer = (NamedPipeServerStream)iar.AsyncState;
-				// End waiting for the connection
-				//pipeServer.EndWaitForConnection(iar);
-
-				byte[] buffer = new byte[255];
-
-				// Read the incoming message
-				pipeServer.Read(buffer, 0, 255);
-
-				// Convert byte buffer to string
-				string stringData = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
-
-				// Pass message back to calling form
-				PipeMessage.Invoke(stringData);
-
-				if(QueueTasks.TryDequeue(out var task)) task.Start();
-				else _pipeIsOpen = true;
+				return buffer;
 			}
 			catch
 			{
-				return;
+				return null;
 			}
 		}
 
-		public void Kill()
+		#region [IDisplosable pattern]
+
+		private bool disposedValue;
+
+		protected virtual void Dispose(bool disposing)
 		{
-			// Kill original sever
-			_pipeServer.Close();
-			_pipeServer.Dispose();
+			if(!disposedValue)
+			{
+				if(disposing)
+				{
+					
+				}
+				_pipeServer.Close();
+				_pipeServer = null;
+
+				disposedValue = true;
+			}
 		}
+
+		~PipeServer()
+		{
+			Dispose(disposing: false);
+		}
+
+		public void Dispose()
+		{
+			Dispose(disposing: true);
+			GC.SuppressFinalize(this);
+		}
+
+		#endregion
 	}
 }

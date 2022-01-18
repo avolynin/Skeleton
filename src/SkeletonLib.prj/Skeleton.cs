@@ -2,18 +2,23 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Mallenom.SkeletonLib.NamedPipe;
 
 namespace Mallenom.SkeletonLib
 {
+	/// <summary>Класс для обнаружения на изображении человека костей.</summary>
 	public class Skeleton
 	{
-		private PipeServer _server;
-		private PythonRunner _pyRunner;
+		#region Fields
+
+		/// <summary>Изображение в виде массива байтов.</summary>
 		private byte[] _byteImage;
 
+		/// <summary>Изображение в виде массива байтов.</summary>
 		private byte[] ByteImage
 		{
 			get { return _byteImage; }
@@ -25,60 +30,39 @@ namespace Mallenom.SkeletonLib
 			}
 		}
 
+		#endregion
+
+		/// <param name="image">Исходное изображение.</param>
 		public Skeleton(byte[] image)
 		{
 			ByteImage = image;
 		}
 
+		/// <summary>Добавляет кости на изображение.</summary>
+		/// <returns>Исходное изображение с наложенными костями в виде массива байтов.</returns>
 		public byte[] GetImageWithBones()
 		{
-			_server = new PipeServer("testpipe");
+			using var pyRun = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\");
+			using var server = new PipeServer("testpipe");
 
-			_server.PipeMessage +=
-				(message) =>
-				{
-					Console.WriteLine(message);
-				};
+			pyRun.Run("pipe.py");
 
-			_pyRunner = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\");
-			_pyRunner.Run("pipe.py");
+			server.Send(ByteImage);
+			var result = server.Listen();
 
-			_server.SendAsync(ByteImage);
-			_server.ListenAsync();
-
-			_pyRunner._pyProcces.WaitForExit();
-			_pyRunner.Kill();
-			return null;
+			pyRun.WaitForExit();
+			return result;
 		}
 
-		public byte[] GetImageWithBonesAsync()
-		{
-			_server = new PipeServer("testpipe");
-
-			_server.PipeMessage +=
-				(message) =>
-				{
-					Console.WriteLine(message);
-				};
-
-			_pyRunner = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\");
-			_pyRunner.Run("pipe.py");
-
-			_server.SendAsync(ByteImage);
-			_server.ListenAsync();
-
-			_pyRunner._pyProcces.WaitForExit();
-			_pyRunner.Kill();
-			_server.Kill();
-			return null;
-		}
-
-		private static bool IsValidImage(byte[] bytes)
+		/// <summary>Проверка массива байтов на соответствие формату изображения.</summary>
+		/// <param name="bytes">Массив байтов для проверки.</param>
+		/// <returns>true, если массив байтов представляет изображение.</returns>
+		private static bool IsValidImage(in byte[] bytes)
 		{
 			try
 			{
-				using(MemoryStream ms = new MemoryStream(bytes))
-					Image.FromStream(ms);
+				using var ms = new MemoryStream(bytes);
+				Image.FromStream(ms);
 			}
 			catch(ArgumentException)
 			{
