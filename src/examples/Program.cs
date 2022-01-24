@@ -9,14 +9,14 @@ namespace test
 	{
 		static void Main(string[] args)
 		{
-			var path = @"D:\Users\Camputer\source\repos\MemoryTest\image.jpg";
+			var path = @"D:\Users\Camputer\source\repos\Skeleton\src\dataset\test\steth.jpg";
 			var imgdata = System.IO.File.ReadAllBytes(path);
 
 			var s = new Skeleton(imgdata);
 			var b = s.GetImageWithBones();
 
 			var c = (Image)new ImageConverter().ConvertFrom(b);
-			c.Save(@"D:\Users\Camputer\source\repos\Skeleton\src\img\image.jpg");
+			c.Save(@"D:\Users\Camputer\source\repos\Skeleton\src\img\stethWithBones.jpg");
 		}
 	}
 }

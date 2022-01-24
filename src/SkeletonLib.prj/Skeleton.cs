@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Mallenom.SkeletonLib.NamedPipe;
@@ -42,16 +39,39 @@ namespace Mallenom.SkeletonLib
 		/// <returns>Исходное изображение с наложенными костями в виде массива байтов.</returns>
 		public byte[] GetImageWithBones()
 		{
-			using var pyRun = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\");
+			using var pyRun = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\")
+			{
+				VirtualEnvironmentName = "skeleton-env"
+			};
 			using var server = new PipeServer("testpipe");
 
-			pyRun.Run("pipe.py");
-
+			pyRun.RunPyConda("main.py");
+			
 			server.Send(ByteImage);
 			var result = server.Listen();
 
 			pyRun.WaitForExit();
 			return result;
+		}
+
+		public async Task<byte[]> GetImageWithBonesAsync()
+		{
+			return await Task.Run<byte[]>(() =>
+			{
+				using var pyRun = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\")
+				{
+					VirtualEnvironmentName = "skeleton-env"
+				};
+				using var server = new PipeServer("testpipe");
+
+				pyRun.RunPyConda("main.py");
+
+				server.Send(ByteImage);
+				var result = server.Listen();
+
+				pyRun.WaitForExit();
+				return result;
+			});
 		}
 
 		/// <summary>Проверка массива байтов на соответствие формату изображения.</summary>
