@@ -10,4 +10,8 @@
     <Folder Include="Models\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\SkeletonLib.prj\SkeletonLib.csproj" />
+  </ItemGroup>
+
 </Project>

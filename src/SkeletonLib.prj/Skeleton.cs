@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Mallenom.SkeletonLib.NamedPipe;
 
 namespace Mallenom.SkeletonLib
@@ -50,6 +52,26 @@ namespace Mallenom.SkeletonLib
 
 			pyRun.WaitForExit();
 			return result;
+		}
+
+		public async Task<byte[]> GetImageWithBonesAsync()
+		{
+			return await Task.Run<byte[]>(() =>
+			{
+				using var pyRun = new PythonRunner(@"D:\Users\Camputer\source\repos\Skeleton\src\python\")
+				{
+					VirtualEnvironmentName = "skeleton-env"
+				};
+				using var server = new PipeServer("testpipe");
+
+				pyRun.RunPyConda("main.py");
+
+				server.Send(ByteImage);
+				var result = server.Listen();
+
+				pyRun.WaitForExit();
+				return result;
+			});
 		}
 
 		/// <summary>Проверка массива байтов на соответствие формату изображения.</summary>

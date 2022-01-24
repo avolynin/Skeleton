@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SkeletonApp.Infrastructure.Commands
 {
-	class RelayCommand : Command
+	internal class RelayCommand : Command
 	{
 		private readonly Func<object, bool> _canExecute;
 		private readonly Action<object> _execute;

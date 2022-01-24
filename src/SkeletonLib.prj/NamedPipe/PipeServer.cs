@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO.Pipes;
 using System.Threading.Tasks;
 
@@ -88,9 +89,11 @@ namespace Mallenom.SkeletonLib.NamedPipe
 		{
 			try
 			{
-				byte[] buffer = new byte[100000];
+				const int SIZE_BUFFER = 1024 * 5000;
+
+				byte[] buffer = new byte[SIZE_BUFFER];
 				// Чтение входящего сообщения в буффер
-				_pipeServer.Read(buffer, 0, 100000);
+				_pipeServer.Read(buffer, 0, buffer.Length);
 
 				return buffer;
 			}

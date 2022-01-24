@@ -17,7 +17,7 @@ namespace SkeletonApp.ViewModels.Base
 		}
 
 		/// <summary>Присваивание полю переданного занчения value.</summary>
-		/// <typeparam name="T">Any.</typeparam>
+		/// <typeparam name="T">Тип значения и поля.</typeparam>
 		/// <param name="field">Ссылка на поле свойства.</param>
 		/// <param name="value">Новое значение.</param>
 		/// <param name="propertyName">Имя свойства (если не указывать имя, возьмется имя вызывающего объекта.</param>

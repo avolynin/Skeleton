@@ -18,10 +18,10 @@ def byteToImage(bytesImg):
 
 pipe = ClientPipe(r'\\.\pipe\testpipe')
 
-data = pipe.listen(75*1024)
+data = pipe.listen(5000*1024)
 
-test = byteToImage(data)
-imgBones = nwp.getImageWithBones(test) 
+image = byteToImage(data)
+imgBones = nwp.getImageWithBones(image)
 bytesImg = imageToBytes(imgBones)
 
 pipe.send(bytesImg)

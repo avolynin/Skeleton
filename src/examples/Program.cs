@@ -15,11 +15,6 @@ namespace test
 			var s = new Skeleton(imgdata);
 			var b = s.GetImageWithBones();
 
-			foreach(var item in b)
-			{
-				Console.WriteLine(item);
-			}
-
 			var c = (Image)new ImageConverter().ConvertFrom(b);
 			c.Save(@"D:\Users\Camputer\source\repos\Skeleton\src\img\stethWithBones.jpg");
 		}
