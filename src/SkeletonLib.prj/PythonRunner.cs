@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Mallenom.SkeletonLib
 {
@@ -15,19 +10,21 @@ namespace Mallenom.SkeletonLib
 
 		/// <summary>Директория с python-скриптами.</summary>
 		public string WorkingDirectory { get; set; }
+		public string VirtualEnvironmentName { get; set; }
 
 		/// <summary>Создает процесс.</summary>
 		/// <param name="workingDirectory">Путь рабочей директории.</param>
-		public PythonRunner(string workingDirectory)
+		public PythonRunner(string workingDirectory, string venvName = null)
 		{
 			_procces = new Process();
 			WorkingDirectory = workingDirectory;
+			VirtualEnvironmentName = venvName;
 		}
 
 		/// <summary>Запуск python-скрипта.</summary>
 		/// <param name="scriptName">Имя файла с раширением py.</param>
 		/// <param name="args">Передаваемые аргументы при запуске скрипта.</param>
-		public void Run(string scriptName, string args = null)
+		public void RunPy(string scriptName, string args = null)
 		{
 			var startInfo = new ProcessStartInfo("python");
 
@@ -35,11 +32,42 @@ namespace Mallenom.SkeletonLib
 			startInfo.Arguments = $"{scriptName} {args}";
 			startInfo.UseShellExecute = false;
 			startInfo.CreateNoWindow = true;
-			startInfo.RedirectStandardError = true;
-			startInfo.RedirectStandardOutput = true;
+			//startInfo.RedirectStandardError = true;
+			//startInfo.RedirectStandardOutput = true;
 
 			_procces.StartInfo = startInfo;
 			_procces.Start();
+		}
+
+		/// <summary>Запуск python-скрипта c помощью Anaconda3 и виртуальным пространством.</summary>
+		/// <param name="scriptName">Имя файла с раширением py.</param>
+		/// <param name="args">Передаваемые аргументы при запуске скрипта.</param>
+		public void RunPyConda(string scriptName, string args = null)
+		{
+			var startInfo = new ProcessStartInfo("cmd.exe");
+
+			startInfo.WorkingDirectory = WorkingDirectory;
+			startInfo.UseShellExecute = false;
+			startInfo.CreateNoWindow = true;
+			//startInfo.RedirectStandardError = true;
+			//startInfo.RedirectStandardOutput = true;
+			startInfo.RedirectStandardInput = true;
+
+			_procces.StartInfo = startInfo;
+			_procces.Start();
+
+			using var sw = _procces.StandardInput;
+			if (sw.BaseStream.CanWrite)
+			{
+				// Активация Anaconda3
+				sw.WriteLine(@"D:\Users\Camputer\anaconda3\Scripts\activate.bat");
+				// Активация виртуального окружения
+				sw.WriteLine("activate skeleton-env");
+
+				if(args?.Length > 0) sw.WriteLine(args);
+				// Запуск скрипта
+				sw.WriteLine("python " + scriptName);
+			}
 		}
 
 		/// <summary>Ожидание выполнения python-скрипта.</summary>
